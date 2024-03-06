@@ -1,4 +1,11 @@
+from __future__ import annotations
+from typing import Callable
+
+import asyncio
+import multiprocessing as mp
+from multiprocessing.synchronize import Event
 import os
+import queue
 import cv2 as cv
 
 
@@ -75,7 +82,77 @@ def get_led_position(frame, contrast, threshold):
     return location, contour_image, contrast_image
 
 
-def launch_calibration_window(camera_id):
+# CV is old and doesn't understand asyncio. This is likely where you're locking up.
+# So we spawn another python interpreter and pipe the results back.
+class LaunchCalibrationWindowProc(mp.Process):
+    def __init__(self, camera_id: int) -> None:
+        super().__init__(name="camera-calibration-proc")
+        self._camera_id = camera_id
+        self.output: mp.Queue[tuple[int, int]]= mp.Queue()
+        self.stop_event = mp.Event()
+        self.contrast: int | None = None
+        self.threshold: int | None = None
+
+    @property
+    def result(self) -> tuple[int, int] | tuple[None, None]:
+        try:
+            # Burn down the whole queue to get the last values.
+            while True:
+                self.contrast, self.threshold = self.output.get_nowait()
+        except queue.Empty:
+            return self.contrast, self.threshold
+
+    # Wrap up a queue monitor in a nice, async bow.
+    async def get_results(self) -> tuple[int, int] | tuple[None, None]:
+        result = None
+        while not self.stop_event.is_set():
+            try:
+                # Inner while loop to burn down the queue again.
+                while True:
+                    result = self.output.get_nowait()
+            except queue.Empty:
+                asyncio.sleep(0.050)
+        if result is not None:
+            self.contrast, self.threshold = result
+        return self.contrast, self.threshold
+
+    def run(self) -> None:
+        window_name = "Camera Calibration"
+        cv.namedWindow(window_name)
+        cv.createTrackbar("Threshold", window_name, 230, 255, do_nothing)
+        cv.createTrackbar("Contrast", window_name, 1, 5, do_nothing)
+
+        vc = open_camera(self._camera_id)
+        print("Calibration window is opened")
+
+        while True:
+            success, frame = vc.read()
+            if not success:
+                print("Couldn't get frame, exiting")
+                break
+
+            contrast = cv.getTrackbarPos("Contrast", window_name)
+            threshold = cv.getTrackbarPos("Threshold", window_name)
+            # N.B. this queue is unbounded, don't leave the calibration window open overnight!
+            self.output.put((contrast, threshold))
+
+            _, contour_image, gray_image = get_led_position(frame, contrast, threshold)
+            gray_image = overlay_text(gray_image)
+            cv.imshow(window_name, gray_image)
+            cv.imshow("Detected LED", contour_image)
+
+            # Wait for escape key
+            key = cv.waitKey(20)
+            if key == 27:  # exit on ESC
+                break
+
+        print("Destroying calibration windows")
+        cv.destroyAllWindows()
+        vc.release()
+        self.stop_event.set()
+
+
+def launch_calibration_window(camera_id: int) -> tuple[int, int] | tuple[None, None]:
     window_name = "Camera Calibration"
     cv.namedWindow(window_name)
     cv.createTrackbar("Threshold", window_name, 230, 255, do_nothing)
@@ -83,6 +160,9 @@ def launch_calibration_window(camera_id):
 
     vc = open_camera(camera_id)
     print("Calibration window is opened")
+
+    contrast: int | None = None
+    threshold: int | None = None
 
     while True:
         success, frame = vc.read()

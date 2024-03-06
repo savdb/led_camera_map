@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+from typing import NoReturn
 import asyncio
-from pyartnet import ArtNetNode
+from pyartnet import ArtNetNode, Channel
 
 NUM_LEDS = 100 # TODO: Get this value from main()
 CHANNELS_PER_LED  = 3
@@ -7,21 +10,16 @@ CHANNEL_WIDTH = NUM_LEDS * CHANNELS_PER_LED
 WLED_TIMEOUT_MS = 2500
 
 
-async def setup_leds(ip_address):
+async def setup_leds(ip_address: str) -> Channel:
     node = ArtNetNode(ip_address, 6454)
     universe = node.add_universe(0)
     return universe.add_channel(start=1, width=CHANNEL_WIDTH)
 
-def create_single_pixel_channel(position):
-    array = []
-    black_pixel = [0] * CHANNELS_PER_LED
-    white_pixel = [255] * CHANNELS_PER_LED
-
-    for i in range(NUM_LEDS):
-        if i == position:
-            array.extend(white_pixel)
-        else:
-            array.extend(black_pixel)
+def create_single_pixel_channel(position: int) -> list[int]:
+    array = [0] * CHANNEL_WIDTH
+    start = position * CHANNELS_PER_LED
+    for i in range(start, start + CHANNELS_PER_LED):
+        array[i] = 255
     return array
 
 async def light_one_led(channel, i):
@@ -29,7 +27,7 @@ async def light_one_led(channel, i):
     await channel.set_values(create_single_pixel_channel(i))
     await asyncio.sleep(0.5)
 
-async def blink_one_led_continuously(channel, i):
+async def blink_one_led_continuously(channel: Channel, i: int):
     while True:
         print("==== PRESS ESC TO FINISH CALIBRATION ===")
         await channel.set_values(create_single_pixel_channel(i))
@@ -48,8 +46,8 @@ async def flash_leds_in_order(ip_address,num_leds):
         await channel
         await asyncio.sleep(1)
 
-async def calibration_blink(ip_address):
+async def calibration_blink(ip_address) -> asyncio.Task[NoReturn]:
     print("Setting up LEDs")
     channel = await setup_leds(ip_address)
     print("LEDs are ready")
-    asyncio.ensure_future(blink_one_led_continuously(channel, 1))
+    return asyncio.ensure_future(blink_one_led_continuously(channel, 1))
