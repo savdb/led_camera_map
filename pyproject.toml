@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "wled-camera-map"
+version = "0.1.0"
+description = "Create LED map for WLED using a camera"
+authors = ["Sarah van der Bleek <sarah@vanderbleek.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+asyncio = "^3.4.3"
+pyartnet = "^1.0.1"
+opencv-python = "^4.9.0.80"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
