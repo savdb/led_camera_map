@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 from contextlib import suppress
 from led_camera_map import camera, format_map, led_control_artnet, led_control_wled
 
@@ -71,18 +72,18 @@ async def main():
     calibration_proc.start()
     brightness_queue = calibration_proc.output
 
-    led_blink_task = await led_control_artnet.calibration_blink(
-        WLED_IP, num_leds, brightness_queue
-    )
+    led_blink_task = None
+    with  concurrent.futures.ThreadPoolExecutor() as pool:
+        led_blink_task = await loop.run_in_executor(
+            pool, led_control_artnet.calibration_blink, WLED_IP, num_leds, brightness_queue)
     print("==== PRESS ESC TO FINISH CALIBRATION ===")
-
+    await led_blink_task
     brightness, threshold = await calibration_proc.get_results()
     assert brightness is not None, "Ensure the proc is done, and you have values."
     assert threshold is not None, "Ensure that the proc is done, and you have values."
     calibration_proc.join()
 
     print("Stopping calibration LED blink")
-    led_blink_task.cancel()
     cancel_all_tasks()  # Let's cancel all running tasks before continuing
 
     locations = await run_mapping_task(brightness, threshold, num_leds)
