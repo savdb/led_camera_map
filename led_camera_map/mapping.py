@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
-from concurrent.futures.process import ProcessPoolExecutor
 from led_camera_map import led_control, camera, format_map
 
 WLED_IP = "1.2.3.4"
@@ -105,5 +104,4 @@ async def main():
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.set_default_executor(ProcessPoolExecutor())
     loop.run_until_complete(main())
