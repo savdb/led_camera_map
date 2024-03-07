@@ -88,7 +88,7 @@ def launch_calibration_window(camera_id):
             break
 
         threshold = cv.getTrackbarPos("Threshold", window_name)
-        brightness = cv.getTrackbarPos("LED_Brightness", window_name) # TODO: Use this in led_control
+        brightness = cv.getTrackbarPos("LED_Brightness", window_name) #TODO: Use this in led_control
 
         _, contour_image, gray_image = get_led_position(frame, threshold)
         gray_image = overlay_text(gray_image)
