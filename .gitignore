@@ -3,6 +3,7 @@ cvMap.png
 poetry.lock
 tests/__init__.py
 **/__pycache__/
+out/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
