@@ -42,6 +42,7 @@ def remove_empty_rows_and_cols(positions):
     return positions
 
 def convert_2d_map_to_1d(positions):
+    positions = [list(elem) for elem in positions ] # Convert to list-of-lists
     x_offset, y_offset, width, height = find_grid_bounds(positions)
 
     # Create 2d list initialized to -1

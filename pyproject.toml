@@ -10,7 +10,7 @@ python = "^3.11"
 asyncio = "^3.4.3"
 pyartnet = "^1.0.1"
 opencv-python = "^4.9.0.80"
-wled = "^0.17.0"
+requests = "^2.31.0"
 
 
 [build-system]

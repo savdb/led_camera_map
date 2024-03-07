@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import suppress
-from led_camera_map import led_control, camera, format_map
+from led_camera_map import camera, format_map, led_control_artnet, led_control_wled
 
 WLED_IP = "1.2.3.4"
-NUM_LEDS = 50  # TODO: Get this value from wLED API
 LED_MAP_OUTPUT_NAME = "cvMap"
 CAMERA_ID = 0
+
 
 def cancel_all_tasks():
     pending = asyncio.all_tasks()
@@ -16,7 +16,6 @@ def cancel_all_tasks():
     with suppress(asyncio.CancelledError):
         for task in pending:
             task.cancel()
-    # await asyncio.sleep(3) # And also sleep for a bit to let the LEDs settle
 
 
 def location_already_found(locations, this_location, distance):
@@ -31,32 +30,9 @@ def location_already_found(locations, this_location, distance):
     return False
 
 
-async def main():
-    # shouldn't _need_ to run this in an executor, as you're immediately awaiting.
-    # If you want to avoid blocking here, then you need to push this out to another
-    # thread or process. So that's what we'll do.
-    # contrast, threshold = await asyncio.get_event_loop().run_in_executor(
-    #     None, camera.launch_calibration_window, CAMERA_ID
-    # )
-    calibration_proc = camera.LaunchCalibrationWindowProc(CAMERA_ID)
-    calibration_proc.start()
-    brightness_queue = calibration_proc.output
-
-    led_blink_task = await led_control.calibration_blink(WLED_IP, brightness_queue)
-    print("==== PRESS ESC TO FINISH CALIBRATION ===")
-
-    brightness, threshold = await calibration_proc.get_results()
-    # Just double check that the proc is done, and you have values.
-    assert brightness is not None
-    assert threshold is not None
-    calibration_proc.join()
-
-    print("Stopping calibration LED blink")
-    led_blink_task.cancel()
-    cancel_all_tasks()  # Let's cancel all running tasks before continuing
-
+async def run_mapping_task(brightness, threshold, num_leds):
     locations = []
-    channel = await led_control.setup_leds(WLED_IP)
+    channel = await led_control_artnet.setup_artnet_leds(WLED_IP, num_leds)
 
     vc = camera.open_camera(CAMERA_ID)
 
@@ -66,8 +42,8 @@ async def main():
         + " and threshold "
         + str(threshold)
     )
-    for i in range(NUM_LEDS):
-        await led_control.light_one_led(channel, i, 255)  # TODO: use brightness
+    for i in range(num_leds):
+        await led_control_artnet.light_one_led(channel, num_leds, i, brightness)
         await asyncio.sleep(0)
 
         frame = camera.get_frame(vc)
@@ -83,21 +59,46 @@ async def main():
     print("Finishing LED location capture")
     vc.release()
 
+    return locations
+
+
+async def main():
+    print("Getting number of LEDs from WLED")
+    num_leds = led_control_wled.get_led_count(WLED_IP)
+    print("WLED reports", num_leds, "LEDs")
+
+    calibration_proc = camera.LaunchCalibrationWindowProc(CAMERA_ID)
+    calibration_proc.start()
+    brightness_queue = calibration_proc.output
+
+    led_blink_task = await led_control_artnet.calibration_blink(
+        WLED_IP, num_leds, brightness_queue
+    )
+    print("==== PRESS ESC TO FINISH CALIBRATION ===")
+
+    brightness, threshold = await calibration_proc.get_results()
+    # Just double check that the proc is done, and you have values.
+    assert brightness is not None
+    assert threshold is not None
+    calibration_proc.join()
+
+    print("Stopping calibration LED blink")
+    led_blink_task.cancel()
+    cancel_all_tasks()  # Let's cancel all running tasks before continuing
+
+    locations = await run_mapping_task(brightness, threshold, num_leds)
     print("Found positions of ", str(len(locations)), " LEDs: ")
-    positions_2d_list = [list(elem) for elem in locations]  # Convert to list-of-lists
-    print(positions_2d_list)
+    print(locations)
 
-    linear_list, width, height = format_map.convert_2d_map_to_1d(positions_2d_list)
-
+    linear_list, width, height = format_map.convert_2d_map_to_1d(locations)
+    camera.generate_output_image(CAMERA_ID, locations, LED_MAP_OUTPUT_NAME)
     ledmap_json = format_map.save_wled_json(
         LED_MAP_OUTPUT_NAME, linear_list, width, height
     )
-    # print(ledmap_json)
 
     # TODO: Use API to upload ledmap.json to WLED
     # TODO: WLED needs to be rebooted after ledmap files are uploaded?
 
-    camera.generate_output_image(CAMERA_ID, locations, LED_MAP_OUTPUT_NAME)
     print("All done")
 
 
