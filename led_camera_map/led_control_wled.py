@@ -1,5 +1,6 @@
-from requests import get, post
 import json
+from requests import get, post
+
 
 
 def get_full_info(wled_ip):

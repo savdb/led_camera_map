@@ -5,7 +5,7 @@ import asyncio
 from contextlib import suppress
 from led_camera_map import camera, format_map, led_control_artnet, led_control_wled
 
-WLED_IP = "1.2.3.4"
+WLED_IP = "wled.local"
 LED_MAP_OUTPUT_NAME = "cvMap"
 CAMERA_ID = 0
 
@@ -77,9 +77,8 @@ async def main():
     print("==== PRESS ESC TO FINISH CALIBRATION ===")
 
     brightness, threshold = await calibration_proc.get_results()
-    # Just double check that the proc is done, and you have values.
-    assert brightness is not None
-    assert threshold is not None
+    assert brightness is not None, "Ensure the proc is done, and you have values."
+    assert threshold is not None, "Ensure that the proc is done, and you have values."
     calibration_proc.join()
 
     print("Stopping calibration LED blink")
@@ -90,7 +89,7 @@ async def main():
     print("Found positions of ", str(len(locations)), " LEDs: ")
     print(locations)
 
-    linear_list, width, height = format_map.convert_2d_map_to_1d(locations)
+    linear_list, width, height = format_map.flatten_2d_map(locations)
     camera.generate_output_image(CAMERA_ID, locations, LED_MAP_OUTPUT_NAME)
     ledmap_json = format_map.save_wled_json(
         LED_MAP_OUTPUT_NAME, linear_list, width, height

@@ -1,14 +1,13 @@
 from __future__ import annotations
-from typing import Callable
 
 import asyncio
 import multiprocessing as mp
-from multiprocessing.synchronize import Event
 import os
 import queue
 import cv2 as cv
 
 FRAMES_SAVED_COUNTER = 0
+
 
 def do_nothing(_):
     pass
@@ -22,6 +21,7 @@ def open_camera(camera_id):
         cv.destroyAllWindows()
         exit()
     return vc
+
 
 def overlay_text(image):
     image = cv.cvtColor(image, cv.COLOR_GRAY2RGB)
@@ -73,7 +73,7 @@ def get_led_position(frame, threshold, save_image=False, minimum_dimension=3):
     location, contour_image = locate_led_in_image(threshold_image, minimum_dimension)
     if save_image:
         global FRAMES_SAVED_COUNTER
-        cv.imwrite("out/led" +str(FRAMES_SAVED_COUNTER) + ".png", contour_image)
+        cv.imwrite("out/led" + str(FRAMES_SAVED_COUNTER) + ".png", contour_image)
         FRAMES_SAVED_COUNTER += 1
 
     return location, contour_image, gray_image
@@ -85,7 +85,7 @@ class LaunchCalibrationWindowProc(mp.Process):
     def __init__(self, camera_id: int) -> None:
         super().__init__(name="camera-calibration-proc")
         self._camera_id = camera_id
-        self.output: mp.Queue[tuple[int, int]]= mp.Queue()
+        self.output: mp.Queue[tuple[int, int]] = mp.Queue()
         self.stop_event = mp.Event()
         self.brightness: int | None = None
         self.threshold: int | None = None
@@ -225,7 +225,7 @@ def generate_output_image(camera_id, locations, name):
         print("Couldn't get frame, exiting")
         return
     img = draw_all_led_positions(locations, frame)
-    status = cv.imwrite("out/"+name + ".png", img)
+    status = cv.imwrite("out/" + name + ".png", img)
     print("Image of LED locations saved: ", status)
     if status:
         os.system("start out/" + name + ".png")
