@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import asyncio
 import contextvars
@@ -11,7 +12,7 @@ NUM_LEDS = 50  # TODO: Get this value from wLED API
 LED_MAP_OUTPUT_NAME = "cvMap"
 CAMERA_ID = 0
 
-brightness = contextvars.ContextVar("brightness", default=128)
+#brightness = contextvars.ContextVar("brightness", default=128)
 
 
 def cancel_all_tasks():
@@ -36,14 +37,22 @@ def location_already_found(locations, this_location, distance):
 
 
 async def main():
-    led_blink_task = asyncio.get_event_loop().create_task(
-        led_control.calibration_blink(WLED_IP)
-    )
-    await asyncio.sleep(0)
-    print("Starting Calibration Window")
-    threshold = await asyncio.get_event_loop().run_in_executor(
-        None, camera.launch_calibration_window, CAMERA_ID
-    )
+    led_blink_task = await led_control.calibration_blink(WLED_IP, 128)
+
+    # shouldn't _need_ to run this in an executor, as you're immediately awaiting.
+    # If you want to avoid blocking here, then you need to push this out to another
+    # thread or process. So that's what we'll do.
+    # contrast, threshold = await asyncio.get_event_loop().run_in_executor(
+    #     None, camera.launch_calibration_window, CAMERA_ID
+    # )
+    calibration_proc = camera.LaunchCalibrationWindowProc(CAMERA_ID)
+    calibration_proc.start()
+    brightness2, threshold = await calibration_proc.get_results()
+    # Just double check that the proc is done, and you have values.
+    assert brightness2 is not None
+    assert threshold is not None
+    calibration_proc.join()
+
     print("Stopping calibration LED blink")
     led_blink_task.cancel()
     cancel_all_tasks()  # Let's cancel all running tasks before continuing
@@ -55,7 +64,7 @@ async def main():
 
     print("Starting LED location capture")
     for i in range(NUM_LEDS):
-        await led_control.light_one_led(channel, i)
+        await led_control.light_one_led(channel, i, 255 ) # TODO: use brightness
         await asyncio.sleep(0)
 
         frame = camera.get_frame(vc)
@@ -90,6 +99,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     loop.set_default_executor(ProcessPoolExecutor())
     loop.run_until_complete(main())
