@@ -2,18 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-import contextvars
 from contextlib import suppress
 from concurrent.futures.process import ProcessPoolExecutor
 from led_camera_map import led_control, camera, format_map
 
-WLED_IP = "0.0.0.0"
+WLED_IP = "1.2.3.4"
 NUM_LEDS = 50  # TODO: Get this value from wLED API
 LED_MAP_OUTPUT_NAME = "cvMap"
 CAMERA_ID = 0
-
-#brightness = contextvars.ContextVar("brightness", default=128)
-
 
 def cancel_all_tasks():
     pending = asyncio.all_tasks()
@@ -37,8 +33,6 @@ def location_already_found(locations, this_location, distance):
 
 
 async def main():
-    led_blink_task = await led_control.calibration_blink(WLED_IP, 128)
-
     # shouldn't _need_ to run this in an executor, as you're immediately awaiting.
     # If you want to avoid blocking here, then you need to push this out to another
     # thread or process. So that's what we'll do.
@@ -47,9 +41,14 @@ async def main():
     # )
     calibration_proc = camera.LaunchCalibrationWindowProc(CAMERA_ID)
     calibration_proc.start()
-    brightness2, threshold = await calibration_proc.get_results()
+    brightness_queue = calibration_proc.output
+
+    led_blink_task = await led_control.calibration_blink(WLED_IP, brightness_queue)
+    print("==== PRESS ESC TO FINISH CALIBRATION ===")
+
+    brightness, threshold = await calibration_proc.get_results()
     # Just double check that the proc is done, and you have values.
-    assert brightness2 is not None
+    assert brightness is not None
     assert threshold is not None
     calibration_proc.join()
 
@@ -62,9 +61,14 @@ async def main():
 
     vc = camera.open_camera(CAMERA_ID)
 
-    print("Starting LED location capture")
+    print(
+        "Starting LED location capture with LED brightness "
+        + str(brightness)
+        + " and threshold "
+        + str(threshold)
+    )
     for i in range(NUM_LEDS):
-        await led_control.light_one_led(channel, i, 255 ) # TODO: use brightness
+        await led_control.light_one_led(channel, i, 255)  # TODO: use brightness
         await asyncio.sleep(0)
 
         frame = camera.get_frame(vc)

@@ -28,15 +28,6 @@ async def light_one_led(channel: Channel, i:int, brightness:int):
     await channel.set_values(create_single_pixel_channel(i, brightness))
     await asyncio.sleep(0.2)
 
-async def blink_one_led_continuously(channel: Channel, i: int, brightness:int):
-    while True:
-        print("==== PRESS ESC TO FINISH CALIBRATION ===")
-        await channel.set_values(create_single_pixel_channel(i, brightness))
-        await asyncio.sleep(1)
-        all_off_array = [0]*CHANNEL_WIDTH # Brightness is 0 and all LEDs are black
-        await channel.set_values(all_off_array)
-        await asyncio.sleep(1)
-
 async def flash_leds_in_order(ip_address,num_leds, brightness:int):
     print("entering blink")
     channel = await setup_leds(ip_address)
@@ -47,8 +38,18 @@ async def flash_leds_in_order(ip_address,num_leds, brightness:int):
         await channel
         await asyncio.sleep(1)
 
-async def calibration_blink(ip_address, brightness:int) -> asyncio.Task[NoReturn]:
+async def blink_one_led_continuously(channel: Channel, i: int, brightness_queue):
+    while True:
+        current_brightness, _ =  brightness_queue.get()
+        print("Blinking LED"+str(i)+" at brightness "+str(current_brightness))
+        await channel.set_values(create_single_pixel_channel(i, current_brightness))
+        await asyncio.sleep(1)
+        all_off_array = [0]*CHANNEL_WIDTH # Brightness is 0 and all LEDs are black
+        await channel.set_values(all_off_array)
+        await asyncio.sleep(1)
+
+async def calibration_blink(ip_address, brightness_queue) -> asyncio.Task[NoReturn]:
     print("Setting up LEDs")
     channel = await setup_leds(ip_address)
     print("LEDs are ready")
-    return asyncio.ensure_future(blink_one_led_continuously(channel, 1, brightness))
+    return asyncio.ensure_future(blink_one_led_continuously(channel, 1, brightness_queue))

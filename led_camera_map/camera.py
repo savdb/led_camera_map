@@ -117,7 +117,7 @@ class LaunchCalibrationWindowProc(mp.Process):
         window_name = "Camera Calibration"
         cv.namedWindow(window_name)
         cv.createTrackbar("Threshold", window_name, 230, 255, do_nothing)
-        cv.createTrackbar("LED_Brightness", window_name, 0, 255, do_nothing)
+        cv.createTrackbar("LED_Brightness", window_name, 128, 255, do_nothing)
 
         vc = open_camera(self._camera_id)
         print("Calibration window is opened")
