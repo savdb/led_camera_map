@@ -66,7 +66,7 @@ async def run_mapping_task(brightness, threshold, num_leds):
 async def main():
     print("Getting number of LEDs from WLED")
     num_leds = led_control_wled.get_led_count(WLED_IP)
-    print("WLED reports", num_leds, "LEDs") # ArtNet requires 512 or less per universe
+    print("WLED reports", num_leds, "LEDs")  # ArtNet requires 512 or less per universe
 
     calibration_proc = camera.LaunchCalibrationWindowProc(CAMERA_ID)
     calibration_proc.start()
@@ -74,9 +74,14 @@ async def main():
 
     led_blink_task = None
     loop = asyncio.get_running_loop()
-    with  concurrent.futures.ThreadPoolExecutor() as pool:
+    with concurrent.futures.ThreadPoolExecutor() as pool:
         led_blink_task = await loop.run_in_executor(
-            pool, led_control_artnet.calibration_blink, WLED_IP, num_leds, brightness_queue)
+            pool,
+            led_control_artnet.calibration_blink,
+            WLED_IP,
+            num_leds,
+            brightness_queue,
+        )
     print("==== PRESS ESC TO FINISH CALIBRATION ===")
     await led_blink_task
     brightness, threshold = await calibration_proc.get_results()
@@ -96,8 +101,16 @@ async def main():
     ledmap_json = format_map.save_wled_json(
         LED_MAP_OUTPUT_NAME, linear_list, width, height
     )
+    format_map.visualize_ledmap(ledmap_json)
 
-    led_control_wled.apply_ledmap(WLED_IP, LED_MAP_OUTPUT_NAME)
+    key_pressed = input(
+        "Type y to upload this ledmap to WLED, or press ENTER to exit: "
+    )
+    if key_pressed.casefold() in ("y", "yes", "ok", "continue"):
+        print("Proceeding to upload ledmap to WLED:")
+        led_control_wled.apply_ledmap(WLED_IP, LED_MAP_OUTPUT_NAME)
+    else:
+        print("Ledmap saved in out/ folder, not uploaded to WLED")
 
     print("All done")
 

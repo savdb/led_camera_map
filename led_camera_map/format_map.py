@@ -50,3 +50,21 @@ def save_wled_json(name, ledmap, width, height):
         json.dump(ledmap_json, outfile, separators=(",", ":"))
 
     return ledmap_json
+
+
+def visualize_ledmap(ledmap_json):
+    width = ledmap_json["width"]
+    ledmap = ledmap_json["map"]
+    ledmap[:] = [str(x) if x != -1 else "." for x in ledmap]  # Replace all "-1"
+
+    column_width = 4  # How many characters wide each printed column is
+
+    n = int(len(ledmap) / width)
+    pat = "{{:{}}}".format(column_width)
+    line = "\n".join(pat * width for _ in range(n))
+    formatted_map = line.format(*ledmap)
+    print(ledmap_json["n"], "looks like:")
+    print(formatted_map)
+
+    with open("out/map_visualization.txt", "w", encoding="utf-8") as text_file:
+        text_file.write(formatted_map)
