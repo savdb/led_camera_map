@@ -7,7 +7,7 @@ from contextlib import suppress
 from led_camera_map import camera, format_map, led_control_artnet, led_control_wled
 
 WLED_IP = "wled.local"
-LED_MAP_OUTPUT_NAME = "cvMap"
+LED_MAP_OUTPUT_NAME = "ledmap2"
 CAMERA_ID = 0
 
 
@@ -66,13 +66,14 @@ async def run_mapping_task(brightness, threshold, num_leds):
 async def main():
     print("Getting number of LEDs from WLED")
     num_leds = led_control_wled.get_led_count(WLED_IP)
-    print("WLED reports", num_leds, "LEDs")
+    print("WLED reports", num_leds, "LEDs") # ArtNet requires 512 or less per universe
 
     calibration_proc = camera.LaunchCalibrationWindowProc(CAMERA_ID)
     calibration_proc.start()
     brightness_queue = calibration_proc.output
 
     led_blink_task = None
+    loop = asyncio.get_running_loop()
     with  concurrent.futures.ThreadPoolExecutor() as pool:
         led_blink_task = await loop.run_in_executor(
             pool, led_control_artnet.calibration_blink, WLED_IP, num_leds, brightness_queue)
@@ -96,8 +97,7 @@ async def main():
         LED_MAP_OUTPUT_NAME, linear_list, width, height
     )
 
-    # TODO: Use API to upload ledmap.json to WLED
-    # TODO: WLED needs to be rebooted after ledmap files are uploaded?
+    led_control_wled.apply_ledmap(WLED_IP, LED_MAP_OUTPUT_NAME)
 
     print("All done")
 
