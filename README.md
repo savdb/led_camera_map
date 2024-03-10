@@ -9,23 +9,22 @@ This program was written to run on a computer with a webcam pointing at the LEDs
 ## Setup steps in WLED MM
 
 1. Set the total number of LEDs you have in Setup > Config > LEDs > Hardare setup > Length
-2. Put WLED into 2D mode in Setup > 2D Configuration > 2D Matrix > Panel Dimensions width and height equal to about the number of LEDs you have. The Total LEDs can be more than you physically have, but not less (otherwise those extra ones won't light up).  If your Total LEDs is more than 512, they won't all fit into one ArtNet universe (current code assumes one ArtNet universe only)
+2. Put WLED into 2D mode in Setup > 2D Configuration > 2D Matrix > Panel Dimensions.  Set width equal to about the number of LEDs you have. Set the height to 2.  This gives you a basically linear strip, but in 2d mode, which is required for mapping. If your Total LEDs is more than 512, they won't all fit into one ArtNet universe (current code assumes one ArtNet universe only)
 3. Enable ArtNet in Setup > Sync Interfaces > Realtime.  Set the following settings, then save and reboot WLED.
     - Type: Art-Net
     - Multicast: True
     - Start Universe: 0
     - DMX mode: Dimmer + Multi RGB
-4. Ensure your current LEDmap is set to a default linear LED map, something like this. Otherwise, the calibration LEDs will flash in the order of your LEDMap and the output of this tool will be incorrect.
+4. WLED really likes having a few LEDmaps in its system before it displays all the information.  Go to `http://your-wled-instance.local/edit` and create some files named`/ledmap0.json` (this one is always called "Default" in the UI), `/ledmap1.json`, and `/ledmap2.json`.  Those `/` characters at the beginning of the filenames are important, don't leave them out.  You can populate these LEDmap files with any valid ledmap (like the LinearMap example above, something from [a ledmap generator](https://dosipod.github.io/WLED-Ledmap-Generator/), etc).  It's just nice to have those files around so WLED starts showing you the LEDmap options on the UI.  Also, having a file named `/ledmap.json` (no number) seems to mess things up, so don't have one of those.
+5. Ensure `ledmap0.json` (called "Default" in the web UI) is configured as a default linear LED map, something like this. Otherwise, the calibration LEDs will flash in the order of your LEDMap and the output of this tool will be incorrect.  Make sure this includes all your LEDs.
 
     ```json
-    {"n":"LinearMap"
+    {"n":"LinearMapFor20LEDs"
     ,"width":20
     ,"height":1
     ,"map":[
     0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19]}
     ```
-
-5. WLED really likes having a few LEDmaps in its system before it displays all the information.  Go to `http://your-wled-instance.local/edit` and create some files named `/ledmap0.json`, `/ledmap1.json`, and `/ledmap2.json`.  Those `/` characters at the beginning of the filenames are important, don't leave them out.  You can populate these LEDmap files with any valid ledmap (like the LinearMap example above, something from [a ledmap generator](https://dosipod.github.io/WLED-Ledmap-Generator/), etc).  It's just nice to have those files around so WLED starts showing you the LEDmap options on the UI.
 
 ## Setup steps on your computer
 

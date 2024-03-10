@@ -30,6 +30,12 @@ def location_already_found(locations, this_location, distance):
             return True
     return False
 
+def get_user_confirmation(message:str):
+    print(message)
+    key_pressed = input(str("Type y and press Enter to confirm, any other input will exit: "))
+    if not key_pressed.casefold() in ("y", "yes", "ok", "continue"):
+        print("Exiting")
+        quit() 
 
 async def run_mapping_task(brightness, threshold, num_leds):
     locations = []
@@ -65,8 +71,18 @@ async def run_mapping_task(brightness, threshold, num_leds):
 
 async def main():
     print("Getting number of LEDs from WLED")
+    print("If this is a different number than you expected, go to 2D configuration")
+    print("and make sure your width is the number of LEDs and the height is 2.")
     num_leds = led_control_wled.get_led_count(WLED_IP)
     print("WLED reports", num_leds, "LEDs")  # ArtNet requires 512 or less per universe
+    get_user_confirmation("Is that the number of LEDs you expected?")
+
+    print("Setting WLED's /ledmap0.json to a basic linear map")
+    format_map.generate_basic_ledmap(num_leds) # creates out/ledmap0.json
+    led_control_wled.apply_ledmap(WLED_IP, "ledmap0")
+
+    print("Creating basic linear segment")
+    led_control_wled.set_linear_segment(WLED_IP, num_leds)
 
     calibration_proc = camera.LaunchCalibrationWindowProc(CAMERA_ID)
     calibration_proc.start()
@@ -103,14 +119,10 @@ async def main():
     )
     format_map.visualize_ledmap(ledmap_json)
 
-    key_pressed = input(
-        "Type y to upload this ledmap to WLED, or press ENTER to exit: "
-    )
-    if key_pressed.casefold() in ("y", "yes", "ok", "continue"):
-        print("Proceeding to upload ledmap to WLED:")
-        led_control_wled.apply_ledmap(WLED_IP, LED_MAP_OUTPUT_NAME)
-    else:
-        print("Ledmap saved in out/ folder, not uploaded to WLED")
+    get_user_confirmation("Upload this ledmap to WLED?")
+    print("Proceeding to upload ledmap to WLED")
+    ledmap_id = led_control_wled.apply_ledmap(WLED_IP, LED_MAP_OUTPUT_NAME)
+    led_control_wled.set_2d_segment(WLED_IP, width, height, ledmap_id)
 
     print("All done")
 

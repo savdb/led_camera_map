@@ -31,6 +31,10 @@ def flatten_2d_map(positions: list[tuple[int, int]]):
     return values, width, height
 
 
+def generate_basic_ledmap(num_leds):
+    save_wled_json("ledmap0", list(range(num_leds)), num_leds, 1)
+
+
 def create_wled_json(ledmap_coordinates, width, height, name):
     ledmap = {}
     ledmap["n"] = name
